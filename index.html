@@ -278,6 +278,11 @@
         <input type="range" id="rate" min="0.5" max="1.5" step="0.05" value="1">
         <output id="rateOut">1.00×</output>
       </div>
+      <div class="speed">
+        <label for="boost">Volume</label>
+        <input type="range" id="boost" min="1" max="4" step="0.1" value="2.5">
+        <output id="boostOut">250%</output>
+      </div>
     </div>
 
     <div class="error" id="error" role="alert"></div>
@@ -298,11 +303,13 @@
   const recBtn = $("recBtn"), playFwd = $("playFwd"), playRev = $("playRev");
   const downloadBtn = $("downloadBtn"), fileInput = $("fileInput");
   const rate = $("rate"), rateOut = $("rateOut");
+  const boost = $("boost"), boostOut = $("boostOut");
   const screen = $("screen"), canvas = $("wave"), empty = $("empty");
   const dot = $("dot"), statusText = $("statusText"), timeEl = $("time"), errorEl = $("error");
   const ctx2d = canvas.getContext("2d");
 
   let audioCtx = null;
+  let output = null; // boost gain → limiter → speakers
   let forwardBuf = null, reverseBuf = null;
   let peaks = null;
   let mediaRecorder = null, stream = null, chunks = [];
@@ -312,7 +319,19 @@
   let raf = 0;
 
   const ensureCtx = () => {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // Makeup gain into a hard-ish limiter: loud without clipping.
+      output = audioCtx.createGain();
+      output.gain.value = parseFloat(boost.value);
+      const limiter = audioCtx.createDynamicsCompressor();
+      limiter.threshold.value = -10;
+      limiter.knee.value = 4;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.002;
+      limiter.release.value = 0.2;
+      output.connect(limiter).connect(audioCtx.destination);
+    }
     if (audioCtx.state === "suspended") audioCtx.resume();
     return audioCtx;
   };
@@ -505,8 +524,28 @@
     }
   };
 
+  // Scale the clip so its loudest sample sits just below full scale.
+  // Mic recordings often peak far below 0 dBFS, which plays back very quietly.
+  const normalize = (buf) => {
+    let peak = 0;
+    for (let c = 0; c < buf.numberOfChannels; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = 0; i < d.length; i++) {
+        const v = Math.abs(d[i]);
+        if (v > peak) peak = v;
+      }
+    }
+    if (peak < 1e-4) return;
+    const g = Math.min(30, 0.98 / peak);
+    for (let c = 0; c < buf.numberOfChannels; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = 0; i < d.length; i++) d[i] *= g;
+    }
+  };
+
   const setBuffer = (buf) => {
     const ac = ensureCtx();
+    normalize(buf);
     forwardBuf = buf;
     reverseBuf = ac.createBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
     for (let c = 0; c < buf.numberOfChannels; c++) {
@@ -539,7 +578,7 @@
     source = ac.createBufferSource();
     source.buffer = reversed ? reverseBuf : forwardBuf;
     source.playbackRate.value = r;
-    source.connect(ac.destination);
+    source.connect(output);
     const offset = Math.max(0, Math.min(forwardBuf.duration - 0.01, fromFrac * forwardBuf.duration));
     const thisSource = source;
     source.onended = () => {
@@ -662,6 +701,12 @@
     setStatus("Processing…");
     await loadBlob(f);
     fileInput.value = "";
+  });
+
+  boost.addEventListener("input", () => {
+    const g = parseFloat(boost.value);
+    boostOut.textContent = Math.round(g * 100) + "%";
+    if (output) output.gain.value = g;
   });
 
   rate.addEventListener("input", () => {
