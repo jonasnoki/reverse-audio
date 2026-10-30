@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reverse Audio</title>
+<meta name="description" content="Record audio in your browser and play it backwards.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23ff5a36'/><path d='M62 30 38 50l24 20z' fill='%23111'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3efe6;
+    --panel: #fffdf8;
+    --ink: #1a1814;
+    --muted: #6f685c;
+    --line: #d9d2c3;
+    --accent: #ff5a36;
+    --accent-ink: #fff;
+    --wave: #1a1814;
+    --wave-dim: #c9c1b0;
+    --rec: #e5261b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141311;
+      --panel: #1d1b18;
+      --ink: #f1ece2;
+      --muted: #9a9284;
+      --line: #34302a;
+      --accent: #ff6a48;
+      --accent-ink: #141311;
+      --wave: #f1ece2;
+      --wave-dim: #4a453d;
+      --rec: #ff4a3d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141311;
+    --panel: #1d1b18;
+    --ink: #f1ece2;
+    --muted: #9a9284;
+    --line: #34302a;
+    --accent: #ff6a48;
+    --accent-ink: #141311;
+    --wave: #f1ece2;
+    --wave-dim: #4a453d;
+    --rec: #ff4a3d;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 16px 32px;
+  }
+  main { width: 100%; max-width: 720px; }
+
+  header { margin-bottom: 28px; }
+  h1 {
+    font-size: clamp(40px, 9vw, 72px);
+    line-height: .95;
+    margin: 0 0 12px;
+    letter-spacing: -0.03em;
+  }
+  h1 .flip { display: inline-block; transform: scaleX(-1); color: var(--accent); }
+  .tagline { color: var(--muted); margin: 0; font-size: 17px; }
+
+  .deck {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px;
+  }
+
+  .screen {
+    position: relative;
+    height: 160px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    overflow: hidden;
+    cursor: default;
+  }
+  .screen.has-audio { cursor: pointer; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .empty {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    text-align: center;
+    padding: 0 16px;
+    pointer-events: none;
+  }
+
+  .readout {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 12px 2px 18px;
+    gap: 12px;
+  }
+  .readout .time { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .status { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wave-dim); }
+  .dot.rec { background: var(--rec); animation: pulse 1s infinite; }
+  .dot.play { background: var(--accent); }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  .controls {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    gap: 12px;
+    align-items: stretch;
+  }
+  button {
+    font: inherit;
+    font-weight: 700;
+    font-size: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 14px 18px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: transform .08s ease, background .15s ease, border-color .15s ease;
+  }
+  button:hover:not(:disabled) { border-color: var(--ink); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button svg { width: 18px; height: 18px; flex: none; }
+
+  .rec-btn {
+    width: 64px; height: 64px; padding: 0;
+    border-radius: 50%;
+    border: 3px solid var(--ink);
+    background: var(--panel);
+  }
+  .rec-btn .core {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--rec);
+    transition: border-radius .15s ease, width .15s ease, height .15s ease;
+  }
+  .rec-btn.recording .core { border-radius: 5px; width: 22px; height: 22px; }
+
+  .primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .primary:hover:not(:disabled) { border-color: var(--ink); }
+
+  .secondary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+    align-items: center;
+  }
+  .secondary-row button, .secondary-row label.file {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 9px 14px;
+    border-radius: 10px;
+  }
+  label.file {
+    border: 1px solid var(--line);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  label.file:hover { border-color: var(--ink); }
+  label.file input { display: none; }
+  .speed {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .speed input { accent-color: var(--accent); width: 110px; }
+  .speed output { width: 40px; color: var(--ink); }
+
+  .error {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--rec) 12%, transparent);
+    color: var(--ink);
+    font-size: 14px;
+    display: none;
+  }
+  .error.show { display: block; }
+
+  .tips {
+    margin-top: 28px;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .tips h2 { font-size: 15px; color: var(--ink); margin: 0 0 6px; }
+  .tips p { margin: 0 0 8px; }
+  kbd {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 1px 6px;
+    color: var(--ink);
+  }
+  footer { margin-top: 32px; font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 520px) {
+    body { padding-top: 32px; }
+    .deck { padding: 14px; }
+    .screen { height: 130px; }
+    .controls { grid-template-columns: 1fr 1fr; }
+    .rec-btn { grid-column: 1 / -1; justify-self: center; }
+    button { padding: 12px 10px; font-size: 15px; }
+    .speed { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Say it <span class="flip">backwards</span></h1>
+    <p class="tagline">Record a clip, then hear it in reverse. Everything stays in your browser.</p>
+  </header>
+
+  <section class="deck" aria-label="Recorder">
+    <div class="screen" id="screen">
+      <canvas id="wave"></canvas>
+      <div class="empty" id="empty">Press the red button (or <kbd>R</kbd>) to record</div>
+    </div>
+
+    <div class="readout">
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">Ready</span></div>
+      <div class="time" id="time">0:00.0</div>
+    </div>
+
+    <div class="controls">
+      <button class="rec-btn" id="recBtn" aria-label="Record"><span class="core"></span></button>
+      <button id="playFwd" disabled>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg>
+        Forward
+      </button>
+      <button id="playRev" class="primary" disabled>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 4v16L4 12z"/></svg>
+        Reverse
+      </button>
+    </div>
+
+    <div class="secondary-row">
+      <label class="file">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0-5 5m5-5 5 5M4 20h16"/></svg>
+        Open file
+        <input type="file" id="fileInput" accept="audio/*">
+      </label>
+      <button id="downloadBtn" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>
+        Save reversed .wav
+      </button>
+      <div class="speed">
+        <label for="rate">Speed</label>
+        <input type="range" id="rate" min="0.5" max="1.5" step="0.05" value="1">
+        <output id="rateOut">1.00×</output>
+      </div>
+    </div>
+
+    <div class="error" id="error" role="alert"></div>
+  </section>
+
+  <section class="tips">
+    <h2>Try the reverse challenge</h2>
+    <p>Record a phrase, play it reversed, then record yourself imitating the reversed sound. Reverse <em>that</em> — it should sound almost like the original.</p>
+    <p>Shortcuts: <kbd>R</kbd> record / stop · <kbd>Space</kbd> play reversed · <kbd>F</kbd> play forward. Click the waveform to play from a point.</p>
+  </section>
+
+  <footer>No uploads. Audio never leaves your device.</footer>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const recBtn = $("recBtn"), playFwd = $("playFwd"), playRev = $("playRev");
+  const downloadBtn = $("downloadBtn"), fileInput = $("fileInput");
+  const rate = $("rate"), rateOut = $("rateOut");
+  const screen = $("screen"), canvas = $("wave"), empty = $("empty");
+  const dot = $("dot"), statusText = $("statusText"), timeEl = $("time"), errorEl = $("error");
+  const ctx2d = canvas.getContext("2d");
+
+  let audioCtx = null;
+  let forwardBuf = null, reverseBuf = null;
+  let peaks = null;
+  let mediaRecorder = null, stream = null, chunks = [];
+  let analyser = null, liveData = null, liveHistory = [];
+  let recStart = 0;
+  let source = null, playState = null; // { reversed, startedAt, offset, rate }
+  let raf = 0;
+
+  const ensureCtx = () => {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  };
+
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const fmt = (s) => {
+    s = Math.max(0, s);
+    const m = Math.floor(s / 60);
+    return `${m}:${(s - m * 60).toFixed(1).padStart(4, "0")}`;
+  };
+
+  const setStatus = (text, kind = "") => {
+    statusText.textContent = text;
+    dot.className = "dot" + (kind ? " " + kind : "");
+  };
+  const showError = (msg) => {
+    errorEl.textContent = msg;
+    errorEl.classList.toggle("show", !!msg);
+  };
+  const setHasAudio = (has) => {
+    playFwd.disabled = playRev.disabled = downloadBtn.disabled = !has;
+    screen.classList.toggle("has-audio", has);
+  };
+
+  // ---------- canvas ----------
+  const resizeCanvas = () => {
+    const dpr = window.devicePixelRatio || 1;
+    const r = canvas.getBoundingClientRect();
+    canvas.width = Math.round(r.width * dpr);
+    canvas.height = Math.round(r.height * dpr);
+    ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (forwardBuf) peaks = computePeaks(forwardBuf, barCount());
+    draw();
+  };
+  const barCount = () => Math.max(40, Math.floor(canvas.getBoundingClientRect().width / 4));
+
+  const computePeaks = (buf, n) => {
+    const ch = buf.numberOfChannels;
+    const len = buf.length;
+    const block = Math.max(1, Math.floor(len / n));
+    const out = new Float32Array(n);
+    const data = [];
+    for (let c = 0; c < ch; c++) data.push(buf.getChannelData(c));
+    let max = 0;
+    for (let i = 0; i < n; i++) {
+      let peak = 0;
+      const start = i * block, end = Math.min(len, start + block);
+      for (let c = 0; c < ch; c++) {
+        const d = data[c];
+        for (let j = start; j < end; j += 4) {
+          const v = Math.abs(d[j]);
+          if (v > peak) peak = v;
+        }
+      }
+      out[i] = peak;
+      if (peak > max) max = peak;
+    }
+    if (max > 0) for (let i = 0; i < n; i++) out[i] /= max;
+    return out;
+  };
+
+  const drawBars = (values, progressFrac, reversed) => {
+    const w = canvas.getBoundingClientRect().width;
+    const h = canvas.getBoundingClientRect().height;
+    ctx2d.clearRect(0, 0, w, h);
+    const n = values.length;
+    const step = w / n;
+    const barW = Math.max(1, step * 0.6);
+    const mid = h / 2;
+    const ink = css("--wave"), dim = css("--wave-dim"), accent = css("--accent");
+    for (let i = 0; i < n; i++) {
+      const x = i * step + (step - barW) / 2;
+      const bh = Math.max(2, values[i] * (h * 0.8));
+      const frac = (i + 0.5) / n;
+      let color = ink;
+      if (progressFrac != null) {
+        const played = reversed ? frac >= 1 - progressFrac : frac <= progressFrac;
+        color = played ? accent : dim;
+      }
+      ctx2d.fillStyle = color;
+      ctx2d.fillRect(x, mid - bh / 2, barW, bh);
+    }
+    if (progressFrac != null) {
+      const px = (reversed ? 1 - progressFrac : progressFrac) * w;
+      ctx2d.fillStyle = accent;
+      ctx2d.fillRect(px - 1, 0, 2, h);
+    }
+  };
+
+  const draw = () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") return;
+    if (!peaks) {
+      const r = canvas.getBoundingClientRect();
+      ctx2d.clearRect(0, 0, r.width, r.height);
+      return;
+    }
+    const p = currentProgress();
+    drawBars(peaks, p, playState ? playState.reversed : false);
+  };
+
+  const drawLive = () => {
+    if (!analyser) return;
+    analyser.getFloatTimeDomainData(liveData);
+    let peak = 0;
+    for (let i = 0; i < liveData.length; i++) {
+      const v = Math.abs(liveData[i]);
+      if (v > peak) peak = v;
+    }
+    const n = barCount();
+    liveHistory.push(Math.min(1, peak * 1.6));
+    if (liveHistory.length > n) liveHistory.shift();
+    const padded = new Array(n - liveHistory.length).fill(0).concat(liveHistory);
+    drawBars(padded, null, false);
+    timeEl.textContent = fmt((performance.now() - recStart) / 1000);
+  };
+
+  // ---------- recording ----------
+  const pickMime = () => {
+    const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+    return types.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+  };
+
+  const startRecording = async () => {
+    showError("");
+    stopPlayback();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError("This browser cannot access the microphone. Use a recent Chrome, Firefox or Safari over HTTPS.");
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
+      });
+    } catch (e) {
+      showError("Microphone access was blocked. Allow microphone access for this site and try again.");
+      return;
+    }
+    const ac = ensureCtx();
+    const src = ac.createMediaStreamSource(stream);
+    analyser = ac.createAnalyser();
+    analyser.fftSize = 1024;
+    liveData = new Float32Array(analyser.fftSize);
+    src.connect(analyser);
+    liveHistory = [];
+
+    const mime = pickMime();
+    mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    chunks = [];
+    mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+      analyser = null;
+      const blob = new Blob(chunks, { type: mediaRecorder.mimeType || mime || "audio/webm" });
+      mediaRecorder = null;
+      await loadBlob(blob);
+    };
+    mediaRecorder.start();
+    recStart = performance.now();
+    recBtn.classList.add("recording");
+    recBtn.setAttribute("aria-label", "Stop recording");
+    empty.style.display = "none";
+    setHasAudio(false);
+    setStatus("Recording", "rec");
+    loop();
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+    recBtn.classList.remove("recording");
+    recBtn.setAttribute("aria-label", "Record");
+    setStatus("Processing…");
+  };
+
+  // ---------- decoding ----------
+  const loadBlob = async (blob) => {
+    try {
+      const ac = ensureCtx();
+      const arr = await blob.arrayBuffer();
+      const buf = await new Promise((res, rej) => {
+        const p = ac.decodeAudioData(arr, res, rej);
+        if (p && p.then) p.then(res, rej);
+      });
+      setBuffer(buf);
+    } catch (e) {
+      showError("Could not decode this audio. Try a different file or record again.");
+      setStatus("Ready");
+    }
+  };
+
+  const setBuffer = (buf) => {
+    const ac = ensureCtx();
+    forwardBuf = buf;
+    reverseBuf = ac.createBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
+    for (let c = 0; c < buf.numberOfChannels; c++) {
+      const src = buf.getChannelData(c);
+      const dst = reverseBuf.getChannelData(c);
+      for (let i = 0, n = src.length; i < n; i++) dst[i] = src[n - 1 - i];
+    }
+    peaks = computePeaks(buf, barCount());
+    empty.style.display = "none";
+    setHasAudio(true);
+    timeEl.textContent = fmt(buf.duration);
+    setStatus(`Clip ready · ${fmt(buf.duration)}`);
+    draw();
+  };
+
+  // ---------- playback ----------
+  // Progress is expressed along the *played* buffer (0 → 1), mapped onto the
+  // waveform right-to-left when reversed.
+  const currentProgress = () => {
+    if (!playState || !forwardBuf) return null;
+    const elapsed = (audioCtx.currentTime - playState.startedAt) * playState.rate;
+    return Math.min(1, (playState.offset + elapsed) / forwardBuf.duration);
+  };
+
+  const play = (reversed, fromFrac = 0) => {
+    if (!forwardBuf) return;
+    const ac = ensureCtx();
+    stopPlayback(true);
+    const r = parseFloat(rate.value);
+    source = ac.createBufferSource();
+    source.buffer = reversed ? reverseBuf : forwardBuf;
+    source.playbackRate.value = r;
+    source.connect(ac.destination);
+    const offset = Math.max(0, Math.min(forwardBuf.duration - 0.01, fromFrac * forwardBuf.duration));
+    const thisSource = source;
+    source.onended = () => {
+      if (source !== thisSource) return;
+      source = null;
+      playState = null;
+      setStatus(`Clip ready · ${fmt(forwardBuf.duration)}`);
+      timeEl.textContent = fmt(forwardBuf.duration);
+      updatePlayButtons();
+      draw();
+    };
+    source.start(0, offset);
+    playState = { reversed, startedAt: ac.currentTime, offset, rate: r };
+    setStatus(reversed ? "Playing reversed" : "Playing forward", "play");
+    updatePlayButtons();
+    loop();
+  };
+
+  const stopPlayback = (silent) => {
+    if (source) {
+      const s = source;
+      source = null;
+      try { s.stop(); } catch (_) {}
+    }
+    playState = null;
+    if (!silent) {
+      updatePlayButtons();
+      if (forwardBuf) setStatus(`Clip ready · ${fmt(forwardBuf.duration)}`);
+      draw();
+    }
+  };
+
+  const updatePlayButtons = () => {
+    const fwdActive = playState && !playState.reversed;
+    const revActive = playState && playState.reversed;
+    playFwd.lastChild.textContent = fwdActive ? " Stop" : " Forward";
+    playRev.lastChild.textContent = revActive ? " Stop" : " Reverse";
+  };
+
+  const togglePlay = (reversed) => {
+    if (playState && playState.reversed === reversed) stopPlayback();
+    else play(reversed);
+  };
+
+  const loop = () => {
+    cancelAnimationFrame(raf);
+    const tick = () => {
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        drawLive();
+      } else if (playState) {
+        draw();
+        const p = currentProgress();
+        if (p != null) timeEl.textContent = `${fmt(p * forwardBuf.duration)} / ${fmt(forwardBuf.duration)}`;
+      } else {
+        draw();
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+  };
+
+  // ---------- WAV export ----------
+  const encodeWav = (buf) => {
+    const ch = buf.numberOfChannels, sr = buf.sampleRate, len = buf.length;
+    const bytes = 44 + len * ch * 2;
+    const view = new DataView(new ArrayBuffer(bytes));
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, "RIFF"); view.setUint32(4, bytes - 8, true); str(8, "WAVE");
+    str(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, ch, true); view.setUint32(24, sr, true);
+    view.setUint32(28, sr * ch * 2, true); view.setUint16(32, ch * 2, true); view.setUint16(34, 16, true);
+    str(36, "data"); view.setUint32(40, len * ch * 2, true);
+    const data = [];
+    for (let c = 0; c < ch; c++) data.push(buf.getChannelData(c));
+    let o = 44;
+    for (let i = 0; i < len; i++) {
+      for (let c = 0; c < ch; c++) {
+        const s = Math.max(-1, Math.min(1, data[c][i]));
+        view.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        o += 2;
+      }
+    }
+    return new Blob([view], { type: "audio/wav" });
+  };
+
+  // ---------- events ----------
+  recBtn.addEventListener("click", () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") stopRecording();
+    else startRecording();
+  });
+  playFwd.addEventListener("click", () => togglePlay(false));
+  playRev.addEventListener("click", () => togglePlay(true));
+
+  screen.addEventListener("click", (e) => {
+    if (!forwardBuf || (mediaRecorder && mediaRecorder.state === "recording")) return;
+    const r = screen.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    const reversed = playState ? playState.reversed : true;
+    play(reversed, reversed ? 1 - x : x);
+  });
+
+  downloadBtn.addEventListener("click", () => {
+    if (!reverseBuf) return;
+    const url = URL.createObjectURL(encodeWav(reverseBuf));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reversed-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  fileInput.addEventListener("change", async () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    showError("");
+    stopPlayback();
+    setStatus("Processing…");
+    await loadBlob(f);
+    fileInput.value = "";
+  });
+
+  rate.addEventListener("input", () => {
+    const r = parseFloat(rate.value);
+    rateOut.textContent = r.toFixed(2) + "×";
+    if (source && playState) {
+      // Re-anchor progress so the playhead stays continuous.
+      const now = audioCtx.currentTime;
+      playState.offset += (now - playState.startedAt) * playState.rate;
+      playState.startedAt = now;
+      playState.rate = r;
+      source.playbackRate.value = r;
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input")) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Let a focused button handle Space natively instead of double-toggling.
+    if (e.key === " " && e.target.closest && e.target.closest("button, label")) return;
+    if (e.key === "r" || e.key === "R") { e.preventDefault(); recBtn.click(); }
+    else if (e.key === " ") { e.preventDefault(); if (!playRev.disabled) togglePlay(true); }
+    else if (e.key === "f" || e.key === "F") { if (!playFwd.disabled) togglePlay(false); }
+  });
+
+  window.addEventListener("resize", resizeCanvas);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+  resizeCanvas();
+})();
+</script>
+</body>
+</html>
