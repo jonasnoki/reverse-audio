@@ -220,6 +220,61 @@
     padding: 1px 6px;
     color: var(--ink);
   }
+
+  /* ---------- multiplayer ---------- */
+  .room { margin-top: 20px; }
+  .room h2 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .room .lede { color: var(--muted); margin: 0 0 14px; font-size: 15px; }
+  .field {
+    font: inherit; font-size: 15px;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--bg); color: var(--ink);
+    padding: 10px 12px; min-width: 0;
+  }
+  .field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .join-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .join-row .field { flex: 1 1 180px; }
+  .room-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .code {
+    font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 18px;
+    letter-spacing: .12em; padding: 4px 10px; border-radius: 8px;
+    background: var(--bg); border: 1px solid var(--line);
+  }
+  .room-head .spacer { flex: 1; }
+  .small { font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: 10px; }
+  .players { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .player {
+    font-size: 13px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); display: inline-flex; gap: 6px; align-items: center;
+  }
+  .player b { font-family: "JetBrains Mono", monospace; color: var(--accent); }
+  .player.me { border-color: var(--ink); }
+  .send-box {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    padding: 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .send-box label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; cursor: pointer; }
+  .send-box input[type=checkbox] { accent-color: var(--accent); }
+  .send-box .field { flex: 1 1 160px; padding: 8px 10px; font-size: 14px; }
+  .feed { display: flex; flex-direction: column; gap: 10px; }
+  .feed-empty { color: var(--muted); font-size: 14px; }
+  .clip { border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .clip-top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
+  .clip-top .who { font-weight: 700; }
+  .clip-top .meta { color: var(--muted); font-size: 13px; font-family: "JetBrains Mono", monospace; }
+  .tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    padding: 2px 7px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); }
+  .tag.done { background: var(--line); color: var(--ink); }
+  .clip-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .answer { margin-top: 8px; font-size: 14px; }
+  .answer q { font-weight: 700; }
+  .guess-row { display: flex; gap: 8px; margin-top: 10px; }
+  .guess-row .field { flex: 1; padding: 8px 10px; font-size: 14px; }
+  .guesses { margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+  .guesses li { padding: 2px 0; }
+  .guesses .ok { color: var(--ink); font-weight: 700; }
+  .room-status { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 1em; }
   footer { margin-top: 32px; font-size: 13px; color: var(--muted); }
 
   @media (max-width: 520px) {
@@ -288,13 +343,45 @@
     <div class="error" id="error" role="alert"></div>
   </section>
 
+  <section class="deck room" id="room" aria-label="Multiplayer">
+    <h2>Play with friends</h2>
+    <p class="lede">Open a room, share the link, and swap reversed clips. Send a <strong>challenge</strong> and the others get only the reversed audio — first to guess the phrase scores.</p>
+
+    <div id="lobby">
+      <div class="join-row">
+        <input class="field" id="nameInput" maxlength="24" placeholder="Your name" autocomplete="nickname">
+        <button class="primary small" id="createBtn">Create room</button>
+        <button class="small" id="joinBtn" hidden>Join room</button>
+      </div>
+    </div>
+
+    <div id="inRoom" hidden>
+      <div class="room-head">
+        <span>Room</span><span class="code" id="roomCode"></span>
+        <span class="spacer"></span>
+        <button class="small" id="copyBtn">Copy invite link</button>
+        <button class="small" id="leaveBtn">Leave</button>
+      </div>
+      <div class="players" id="players"></div>
+
+      <div class="send-box">
+        <label><input type="checkbox" id="challengeChk" checked> Challenge</label>
+        <input class="field" id="answerInput" maxlength="80" placeholder="Secret phrase you said">
+        <button class="primary small" id="sendBtn" disabled>Send my clip</button>
+      </div>
+
+      <div class="feed" id="feed"><p class="feed-empty">No clips yet. Record something above and send it.</p></div>
+    </div>
+    <div class="room-status" id="roomStatus" role="status"></div>
+  </section>
+
   <section class="tips">
     <h2>Try the reverse challenge</h2>
     <p>Record a phrase, play it reversed, then record yourself imitating the reversed sound. Reverse <em>that</em> — it should sound almost like the original.</p>
     <p>Shortcuts: <kbd>R</kbd> record / stop · <kbd>Space</kbd> play reversed · <kbd>F</kbd> play forward. Click the waveform to play from a point.</p>
   </section>
 
-  <footer>No uploads. Audio never leaves your device.</footer>
+  <footer>No server uploads. Solo, audio never leaves your device; in a room, clips go peer-to-peer to the other players.</footer>
 </main>
 
 <script>
@@ -458,6 +545,7 @@
   const startRecording = async () => {
     showError("");
     stopPlayback();
+    stopFeed();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showError("This browser cannot access the microphone. Use a recent Chrome, Firefox or Safari over HTTPS.");
       return;
@@ -573,6 +661,7 @@
   const play = (reversed, fromFrac = 0) => {
     if (!forwardBuf) return;
     const ac = ensureCtx();
+    stopFeed();
     stopPlayback(true);
     const r = parseFloat(rate.value);
     source = ac.createBufferSource();
@@ -735,6 +824,445 @@
   window.addEventListener("resize", resizeCanvas);
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
   resizeCanvas();
+  // ======================================================================
+  // Multiplayer — WebRTC rooms via PeerJS (public broker, no backend).
+  // Star topology: the room creator is the host and relays everything.
+  // ======================================================================
+  const PREFIX = "revaudio-room-";
+  const MAX_CLIP_SEC = 15;
+  const NET_RATE = 22050;
+
+  const lobby = $("lobby"), inRoom = $("inRoom"), nameInput = $("nameInput");
+  const createBtn = $("createBtn"), joinBtn = $("joinBtn");
+  const roomCodeEl = $("roomCode"), copyBtn = $("copyBtn"), leaveBtn = $("leaveBtn");
+  const playersEl = $("players"), feedEl = $("feed"), roomStatus = $("roomStatus");
+  const challengeChk = $("challengeChk"), answerInput = $("answerInput"), sendBtn = $("sendBtn");
+
+  let peer = null, hostConn = null, isHost = false, myId = null, roomCode = null;
+  const conns = new Map();        // host only: peerId -> DataConnection
+  const players = new Map();      // host only: peerId -> { name, score }
+  const hostClips = [];           // host only: full clips incl. answers
+  let feed = [];                  // everyone: rendered clips
+  const myAnswers = new Map();    // clipId -> answer for clips I sent
+  let feedPlaying = null;         // { id, src }
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const setRoomStatus = (t) => { roomStatus.textContent = t || ""; };
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } },
+                  set: (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} } };
+
+  nameInput.value = store.get("revaudio-name") || "";
+  const urlRoom = new URLSearchParams(location.search).get("room");
+  if (urlRoom) {
+    createBtn.hidden = true;
+    joinBtn.hidden = false;
+    joinBtn.classList.add("primary");
+    joinBtn.textContent = `Join room ${urlRoom.toUpperCase()}`;
+  }
+
+  const myName = () => {
+    const n = nameInput.value.trim().slice(0, 24) || "Player " + Math.floor(Math.random() * 90 + 10);
+    nameInput.value = n;
+    store.set("revaudio-name", n);
+    return n;
+  };
+
+  // ---------- guess matching ----------
+  const norm = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  const lev = (a, b) => {
+    const dp = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      let prev = dp[0]; dp[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const tmp = dp[j];
+        dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+        prev = tmp;
+      }
+    }
+    return dp[b.length];
+  };
+  const isMatch = (guess, answer) => {
+    const g = norm(guess), a = norm(answer);
+    if (!g || !a) return false;
+    return g === a || lev(g, a) <= Math.floor(a.length / 8);
+  };
+
+  // ---------- audio <-> network ----------
+  const toNetPcm = async (buf) => {
+    const len = Math.min(buf.length, Math.floor(MAX_CLIP_SEC * buf.sampleRate));
+    const outLen = Math.ceil((len / buf.sampleRate) * NET_RATE);
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const off = new OAC(1, outLen, NET_RATE);
+    const src = off.createBufferSource();
+    src.buffer = buf;
+    src.connect(off.destination);
+    src.start(0, 0, len / buf.sampleRate);
+    const mono = (await off.startRendering()).getChannelData(0);
+    const pcm = new Int16Array(mono.length);
+    for (let i = 0; i < mono.length; i++) {
+      const s = Math.max(-1, Math.min(1, mono[i]));
+      pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return pcm.buffer;
+  };
+
+  // PeerJS may deliver binary as an ArrayBuffer or as a typed-array view.
+  const asArrayBuffer = (x) => {
+    if (x instanceof ArrayBuffer) return x;
+    if (x && x.buffer instanceof ArrayBuffer) return x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength);
+    return null;
+  };
+
+  const fromNetPcm = (ab, rateHz) => {
+    const ac = ensureCtx();
+    const pcm = new Int16Array(ab, 0, ab.byteLength >> 1);
+    const fwd = ac.createBuffer(1, Math.max(1, pcm.length), rateHz);
+    const rev = ac.createBuffer(1, Math.max(1, pcm.length), rateHz);
+    const f = fwd.getChannelData(0), r = rev.getChannelData(0);
+    for (let i = 0, n = pcm.length; i < n; i++) {
+      const v = pcm[i] / 0x8000;
+      f[i] = v;
+      r[n - 1 - i] = v;
+    }
+    return { fwd, rev };
+  };
+
+  // ---------- feed playback ----------
+  function stopFeed() {
+    if (!feedPlaying) return;
+    const s = feedPlaying.src;
+    feedPlaying = null;
+    try { s.stop(); } catch (_) {}
+    renderFeed();
+  }
+
+  const playFeed = (id, reversed) => {
+    const item = feed.find((c) => c.id === id);
+    if (!item) return;
+    const same = feedPlaying && feedPlaying.id === id && feedPlaying.reversed === reversed;
+    stopFeed();
+    if (same) return;
+    stopPlayback();
+    const ac = ensureCtx();
+    const src = ac.createBufferSource();
+    src.buffer = reversed ? item.rev : item.fwd;
+    src.playbackRate.value = parseFloat(rate.value);
+    src.connect(output);
+    src.onended = () => { if (feedPlaying && feedPlaying.src === src) { feedPlaying = null; renderFeed(); } };
+    src.start();
+    feedPlaying = { id, reversed, src };
+    renderFeed();
+  };
+
+  // Copy a received clip into the main deck so it can be scrubbed/saved.
+  const loadIntoDeck = (id) => {
+    const item = feed.find((c) => c.id === id);
+    if (!item || !item.unlocked) return;
+    stopFeed();
+    stopPlayback();
+    const ac = ensureCtx();
+    const copy = ac.createBuffer(1, item.fwd.length, item.fwd.sampleRate);
+    copy.getChannelData(0).set(item.fwd.getChannelData(0));
+    setBuffer(copy);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ---------- rendering ----------
+  const renderPlayers = (list) => {
+    playersEl.innerHTML = list
+      .slice()
+      .sort((a, b) => b.score - a.score)
+      .map((p) => `<span class="player${p.id === myId ? " me" : ""}">${esc(p.name)}${p.id === myId ? " (you)" : ""} <b>${p.score}</b></span>`)
+      .join("");
+  };
+
+  function renderFeed() {
+    if (!feed.length) {
+      feedEl.innerHTML = `<p class="feed-empty">No clips yet. Record something above and send it.</p>`;
+      return;
+    }
+    const keep = {};
+    feedEl.querySelectorAll("input[data-guess]").forEach((el) => { keep[el.dataset.guess] = el.value; });
+    const active = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.guess : null;
+
+    feedEl.innerHTML = feed.map((c) => {
+      const mine = c.from === myId;
+      const playingRev = feedPlaying && feedPlaying.id === c.id && feedPlaying.reversed;
+      const playingFwd = feedPlaying && feedPlaying.id === c.id && !feedPlaying.reversed;
+      const solves = c.guesses.filter((g) => g.correct).length;
+      const tag = !c.challenge ? ""
+        : mine ? `<span class="tag done">your challenge · ${solves} solved</span>`
+        : `<span class="tag${c.unlocked ? " done" : ""}">${c.unlocked ? (c.revealed && !c.solvedByMe ? "revealed" : "solved") : "challenge"}</span>`;
+      const answer = c.challenge && (c.answer || (mine && myAnswers.get(c.id)))
+        ? `<div class="answer">Phrase: <q>${esc(c.answer || myAnswers.get(c.id))}</q></div>` : "";
+      const guessBox = c.challenge && !c.unlocked && !mine
+        ? `<form class="guess-row" data-form="${c.id}"><input class="field" data-guess="${c.id}" maxlength="80" placeholder="What did they say?" autocomplete="off"><button class="small primary">Guess</button></form>` : "";
+      const reveal = c.challenge && mine && !c.revealed ? `<button class="small" data-act="reveal" data-id="${c.id}">Reveal answer</button>` : "";
+      const guesses = c.guesses.length
+        ? `<ul class="guesses">${c.guesses.map((g) => g.correct
+            ? `<li class="ok">✓ ${esc(g.name)} got it</li>`
+            : `<li>✗ ${esc(g.name)}: “${esc(g.text)}”</li>`).join("")}</ul>` : "";
+      return `<article class="clip">
+        <div class="clip-top"><span class="who">${esc(c.name)}${mine ? " (you)" : ""}</span>
+          <span class="meta">${fmt(c.fwd.duration)}</span>${tag}</div>
+        <div class="clip-actions">
+          <button class="small${playingRev ? "" : " primary"}" data-act="rev" data-id="${c.id}">${playingRev ? "Stop" : "◀ Reverse"}</button>
+          <button class="small" data-act="fwd" data-id="${c.id}" ${c.unlocked ? "" : "disabled title=\"Locked until solved\""}>${playingFwd ? "Stop" : c.unlocked ? "▶ Forward" : "🔒 Forward"}</button>
+          <button class="small" data-act="deck" data-id="${c.id}" ${c.unlocked ? "" : "disabled"}>Open in recorder</button>
+          ${reveal}
+        </div>
+        ${answer}${guessBox}${guesses}
+      </article>`;
+    }).join("");
+
+    feedEl.querySelectorAll("input[data-guess]").forEach((el) => {
+      if (keep[el.dataset.guess]) el.value = keep[el.dataset.guess];
+      if (el.dataset.guess === active) el.focus();
+    });
+  }
+
+  const updateSendBtn = () => { sendBtn.disabled = !forwardBuf || !peer || (!isHost && !hostConn); };
+  setInterval(updateSendBtn, 500);
+  challengeChk.addEventListener("change", () => { answerInput.disabled = !challengeChk.checked; });
+
+  // ---------- events everyone applies ----------
+  const apply = (m) => {
+    if (m.t === "roster") renderPlayers(m.players);
+    else if (m.t === "clip") {
+      const c = m.clip;
+      if (feed.some((x) => x.id === c.id)) return;
+      const pcm = asArrayBuffer(c.pcm);
+      if (!pcm) return;
+      const { fwd, rev } = fromNetPcm(pcm, c.rate);
+      const mine = c.from === myId;
+      feed.unshift({
+        id: c.id, from: c.from, name: c.name, challenge: c.challenge, fwd, rev,
+        answer: c.answer || null, revealed: !!c.answer,
+        unlocked: !c.challenge || mine || !!c.answer, guesses: [],
+      });
+      if (feed.length > 30) feed.length = 30;
+      renderFeed();
+      if (!mine) setRoomStatus(`${c.name} sent a ${c.challenge ? "challenge" : "clip"}.`);
+    } else if (m.t === "guess") {
+      const c = feed.find((x) => x.id === m.clipId);
+      if (!c) return;
+      c.guesses.push({ name: m.name, text: m.text, correct: m.correct });
+      renderFeed();
+    } else if (m.t === "solved" || m.t === "reveal") {
+      const c = feed.find((x) => x.id === m.clipId);
+      if (!c) return;
+      c.unlocked = true;
+      c.answer = m.answer;
+      if (m.t === "reveal") c.revealed = true;
+      else c.solvedByMe = true;
+      renderFeed();
+      if (m.t === "solved") setRoomStatus("Correct! Forward playback unlocked.");
+    } else if (m.t === "error") {
+      setRoomStatus(m.text);
+    }
+  };
+
+  // ---------- host logic ----------
+  const rosterMsg = () => ({ t: "roster", players: [...players].map(([id, p]) => ({ id, name: p.name, score: p.score })) });
+  const sendTo = (id, m) => { if (id === myId) apply(m); else { const c = conns.get(id); if (c && c.open) c.send(m); } };
+  const broadcast = (m) => { apply(m); conns.forEach((c) => { if (c.open) c.send(m); }); };
+  const publicClip = (c) => ({ ...c, answer: c.revealed ? c.answer : undefined, solvedBy: undefined });
+
+  const hostReceive = (m, from) => {
+    const p = players.get(from);
+    if (m.t === "hello") {
+      players.set(from, { name: String(m.name || "Player").slice(0, 24), score: 0 });
+      hostClips.slice(-10).forEach((c) => sendTo(from, { t: "clip", clip: publicClip(c) }));
+      broadcast(rosterMsg());
+      if (from !== myId) setRoomStatus(`${players.get(from).name} joined.`);
+    } else if (!p) {
+      return;
+    } else if (m.t === "clip") {
+      const c = m.clip;
+      const pcm = c && asArrayBuffer(c.pcm);
+      if (!pcm || pcm.byteLength > MAX_CLIP_SEC * NET_RATE * 2 + 64) return;
+      const clip = {
+        id: String(c.id), from, name: p.name, rate: NET_RATE, pcm,
+        challenge: !!c.challenge && !!norm(c.answer || ""), answer: String(c.answer || ""),
+        revealed: false, solvedBy: new Set(),
+      };
+      hostClips.push(clip);
+      if (hostClips.length > 30) hostClips.shift();
+      broadcast({ t: "clip", clip: publicClip(clip) });
+    } else if (m.t === "guess") {
+      const c = hostClips.find((x) => x.id === m.clipId);
+      if (!c || !c.challenge || c.from === from || c.revealed || c.solvedBy.has(from)) return;
+      const text = String(m.text || "").slice(0, 80);
+      const correct = isMatch(text, c.answer);
+      if (correct) {
+        c.solvedBy.add(from);
+        p.score += c.solvedBy.size === 1 ? 2 : 1;
+        const author = players.get(c.from);
+        if (author) author.score += 1;
+        sendTo(from, { t: "solved", clipId: c.id, answer: c.answer });
+      }
+      broadcast({ t: "guess", clipId: c.id, name: p.name, text: correct ? null : text, correct });
+      if (correct) broadcast(rosterMsg());
+    } else if (m.t === "reveal") {
+      const c = hostClips.find((x) => x.id === m.clipId);
+      if (!c || c.from !== from) return;
+      c.revealed = true;
+      broadcast({ t: "reveal", clipId: c.id, answer: c.answer });
+    }
+  };
+
+  // Route a local action to the host (or handle it directly when we are the host).
+  const toHost = (m) => {
+    if (isHost) hostReceive(m, myId);
+    else if (hostConn && hostConn.open) hostConn.send(m);
+  };
+
+  // ---------- connection lifecycle ----------
+  const loadPeerJs = () => window.Peer ? Promise.resolve() : new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js";
+    s.onload = res;
+    s.onerror = () => rej(new Error("Could not load the networking library."));
+    document.head.appendChild(s);
+  });
+
+  const enterRoom = (code) => {
+    roomCode = code;
+    roomCodeEl.textContent = code;
+    lobby.hidden = true;
+    inRoom.hidden = false;
+    const url = new URL(location.href);
+    url.searchParams.set("room", code);
+    history.replaceState(null, "", url);
+    renderFeed();
+    updateSendBtn();
+  };
+
+  const leaveRoom = (statusText) => {
+    stopFeed();
+    if (peer) { try { peer.destroy(); } catch (_) {} }
+    peer = null; hostConn = null; isHost = false; myId = null; roomCode = null;
+    conns.clear(); players.clear(); hostClips.length = 0; feed = []; myAnswers.clear();
+    inRoom.hidden = true;
+    lobby.hidden = false;
+    createBtn.hidden = false;
+    joinBtn.hidden = true;
+    const url = new URL(location.href);
+    url.searchParams.delete("room");
+    history.replaceState(null, "", url);
+    setRoomStatus(statusText || "");
+  };
+
+  const createRoom = async (attempt = 0) => {
+    const name = myName();
+    setRoomStatus("Opening room…");
+    try { await loadPeerJs(); } catch (e) { setRoomStatus(e.message); return; }
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const code = Array.from({ length: 5 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+    peer = new Peer(PREFIX + code);
+    isHost = true;
+    peer.on("open", (id) => {
+      myId = id;
+      enterRoom(code);
+      hostReceive({ t: "hello", name }, myId);
+      setRoomStatus("Room open. Share the invite link — keep this tab open, you are the host.");
+    });
+    peer.on("connection", (conn) => {
+      conn.on("open", () => conns.set(conn.peer, conn));
+      conn.on("data", (m) => hostReceive(m, conn.peer));
+      conn.on("close", () => {
+        conns.delete(conn.peer);
+        const p = players.get(conn.peer);
+        players.delete(conn.peer);
+        if (p) { broadcast(rosterMsg()); setRoomStatus(`${p.name} left.`); }
+      });
+    });
+    peer.on("error", (err) => {
+      if (err.type === "unavailable-id" && attempt < 3) { peer.destroy(); peer = null; createRoom(attempt + 1); return; }
+      setRoomStatus("Connection problem: " + (err.type || err.message));
+    });
+    peer.on("disconnected", () => { if (peer && !peer.destroyed) peer.reconnect(); });
+  };
+
+  const joinRoom = async (code) => {
+    const name = myName();
+    code = code.toUpperCase();
+    setRoomStatus("Joining…");
+    try { await loadPeerJs(); } catch (e) { setRoomStatus(e.message); return; }
+    peer = new Peer();
+    isHost = false;
+    peer.on("open", (id) => {
+      myId = id;
+      hostConn = peer.connect(PREFIX + code, { reliable: true });
+      hostConn.on("open", () => {
+        enterRoom(code);
+        hostConn.send({ t: "hello", name });
+        setRoomStatus("Connected.");
+      });
+      hostConn.on("data", apply);
+      hostConn.on("close", () => leaveRoom("The host closed the room."));
+    });
+    peer.on("error", (err) => {
+      if (err.type === "peer-unavailable") leaveRoom(`Room ${code} was not found. Ask for a new link, or create your own room.`);
+      else setRoomStatus("Connection problem: " + (err.type || err.message));
+    });
+  };
+
+  // ---------- UI wiring ----------
+  createBtn.addEventListener("click", () => createRoom());
+  joinBtn.addEventListener("click", () => joinRoom(urlRoom));
+  nameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") (urlRoom && !joinBtn.hidden ? joinRoom(urlRoom) : createRoom());
+  });
+  leaveBtn.addEventListener("click", () => leaveRoom());
+  copyBtn.addEventListener("click", async () => {
+    const link = `${location.origin}${location.pathname}?room=${roomCode}`;
+    try { await navigator.clipboard.writeText(link); copyBtn.textContent = "Copied!"; }
+    catch (_) { prompt("Copy this link", link); }
+    setTimeout(() => { copyBtn.textContent = "Copy invite link"; }, 1500);
+  });
+
+  sendBtn.addEventListener("click", async () => {
+    if (!forwardBuf) return;
+    const challenge = challengeChk.checked;
+    const answer = answerInput.value.trim();
+    if (challenge && !norm(answer)) {
+      setRoomStatus("Type the secret phrase you said, so others can guess it.");
+      answerInput.focus();
+      return;
+    }
+    sendBtn.disabled = true;
+    setRoomStatus("Sending…");
+    const id = uid();
+    if (challenge) myAnswers.set(id, answer);
+    const pcm = await toNetPcm(forwardBuf);
+    toHost({ t: "clip", clip: { id, pcm, challenge, answer: challenge ? answer : "" } });
+    answerInput.value = "";
+    setRoomStatus(forwardBuf.duration > MAX_CLIP_SEC ? `Sent (trimmed to ${MAX_CLIP_SEC}s).` : "Sent.");
+    updateSendBtn();
+  });
+
+  feedEl.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-act]");
+    if (!b) return;
+    const id = b.dataset.id;
+    if (b.dataset.act === "rev") playFeed(id, true);
+    else if (b.dataset.act === "fwd") playFeed(id, false);
+    else if (b.dataset.act === "deck") loadIntoDeck(id);
+    else if (b.dataset.act === "reveal") toHost({ t: "reveal", clipId: id });
+  });
+  feedEl.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const id = e.target.dataset.form;
+    const input = e.target.querySelector("input");
+    const text = input.value.trim();
+    if (!text) return;
+    toHost({ t: "guess", clipId: id, text });
+    input.value = "";
+  });
+
 })();
 </script>
 </body>
