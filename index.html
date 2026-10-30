@@ -443,20 +443,24 @@
       showError("This browser cannot access the microphone. Use a recent Chrome, Firefox or Safari over HTTPS.");
       return;
     }
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
-      });
-    } catch (e) {
-      showError("Microphone access was blocked. Allow microphone access for this site and try again.");
-      return;
+    // Keep one microphone stream for the whole visit. Asking again on every
+    // recording makes browsers with one-time permissions prompt each time.
+    if (!stream || !stream.active) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
+        });
+      } catch (e) {
+        showError("Microphone access was blocked. Allow microphone access for this site and try again.");
+        return;
+      }
+      const ac = ensureCtx();
+      analyser = ac.createAnalyser();
+      analyser.fftSize = 1024;
+      liveData = new Float32Array(analyser.fftSize);
+      ac.createMediaStreamSource(stream).connect(analyser);
     }
-    const ac = ensureCtx();
-    const src = ac.createMediaStreamSource(stream);
-    analyser = ac.createAnalyser();
-    analyser.fftSize = 1024;
-    liveData = new Float32Array(analyser.fftSize);
-    src.connect(analyser);
+    ensureCtx();
     liveHistory = [];
 
     const mime = pickMime();
@@ -464,9 +468,6 @@
     chunks = [];
     mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach((t) => t.stop());
-      stream = null;
-      analyser = null;
       const blob = new Blob(chunks, { type: mediaRecorder.mimeType || mime || "audio/webm" });
       mediaRecorder = null;
       await loadBlob(blob);
